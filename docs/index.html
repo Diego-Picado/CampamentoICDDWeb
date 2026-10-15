@@ -3,13 +3,8 @@
   <head>
     <meta charset="utf-8">
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
-    <title>Campamento</title>
-    <link rel="icon" type="image/png" sizes="128x128" href="TemplateData/icon-128.png">
-    <link rel="icon" type="image/png" sizes="512x512" href="TemplateData/icon-512.png">
-    <link rel="apple-touch-icon" sizes="512x512" href="TemplateData/icon-512.png">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="default">
-    <meta name="theme-color" content="#ffffff">
+    <title>Unity Web Player | Campamento</title>
+    <link rel="shortcut icon" href="TemplateData/favicon.ico">
     <link rel="stylesheet" href="TemplateData/style.css">
     <link rel="manifest" href="manifest.webmanifest">
   </head>
@@ -62,12 +57,12 @@
       }
 
       var buildUrl = "Build";
-      var loaderUrl = buildUrl + "/CampamentoICDDWeb.loader.js";
+      var loaderUrl = buildUrl + "/docs.loader.js";
       var config = {
         arguments: [],
-        dataUrl: buildUrl + "/CampamentoICDDWeb.data",
-        frameworkUrl: buildUrl + "/CampamentoICDDWeb.framework.js",
-        codeUrl: buildUrl + "/CampamentoICDDWeb.wasm",
+        dataUrl: buildUrl + "/docs.data",
+        frameworkUrl: buildUrl + "/docs.framework.js",
+        codeUrl: buildUrl + "/docs.wasm",
         streamingAssetsUrl: "StreamingAssets",
         companyName: "DefaultCompany",
         productName: "Campamento",
