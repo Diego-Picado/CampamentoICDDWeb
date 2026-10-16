@@ -3,94 +3,36 @@
   <head>
     <meta charset="utf-8">
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
-    <title>Campamento</title>
+    <title>Unity Web Player | Campamento</title>
     <link rel="icon" type="image/png" sizes="128x128" href="TemplateData/icon-128.png">
     <link rel="icon" type="image/png" sizes="512x512" href="TemplateData/icon-512.png">
     <link rel="apple-touch-icon" sizes="512x512" href="TemplateData/icon-512.png">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="default">
-    <meta name="theme-color" content="#ffffff">
     <link rel="stylesheet" href="TemplateData/style.css">
     <link rel="manifest" href="manifest.webmanifest">
   </head>
   <body>
     <div id="unity-container">
       <canvas id="unity-canvas" width=960 height=600 tabindex="-1"></canvas>
+      <div id="unity-loading-bar">
+        <div id="unity-logo"></div>
+        <div id="unity-progress-bar-empty">
+          <div id="unity-progress-bar-full"></div>
+        </div>
+      </div>
       <div id="unity-warning"> </div>
     </div>
     <script>
-      var debugMode = true;
-      var debugStartTime = performance.now();
-      function debugLog(message, details) {
-        if (!debugMode) return;
-        var elapsed = Math.round(performance.now() - debugStartTime);
-        if (details === undefined) console.log("[Campamento WebGL +" + elapsed + "ms] " + message);
-        else console.log("[Campamento WebGL +" + elapsed + "ms] " + message, details);
-      }
-
-      if (debugMode) {
-        console.group("[Campamento WebGL] Startup diagnostics");
-        console.log("Page URL:", window.location.href);
-        console.log("Page title:", document.title);
-        console.log("User agent:", navigator.userAgent);
-        console.log("Service worker controller:", navigator.serviceWorker && navigator.serviceWorker.controller
-          ? navigator.serviceWorker.controller.scriptURL
-          : "none");
-        console.log("Initial page text:", document.body.innerText.trim().slice(0, 500) || "(none)");
-        console.groupEnd();
-        window.addEventListener("error", function (event) {
-          debugLog("Browser error", {
-            message: event.message,
-            file: event.filename,
-            line: event.lineno,
-            column: event.colno
-          });
-        });
-        window.addEventListener("unhandledrejection", function (event) {
-          debugLog("Unhandled promise rejection", String(event.reason));
-        });
-        if (navigator.serviceWorker) {
-          navigator.serviceWorker.addEventListener("controllerchange", function () {
-            debugLog("Service worker controller changed", navigator.serviceWorker.controller && navigator.serviceWorker.controller.scriptURL);
-          });
-        }
-      }
-
       window.addEventListener("load", function () {
         if ("serviceWorker" in navigator) {
-          navigator.serviceWorker.register("ServiceWorker.js").then(function (registration) {
-            debugLog("Service worker registered", {
-              scope: registration.scope,
-              scriptURL: registration.active && registration.active.scriptURL
-            });
-          }).catch(function (error) {
-            debugLog("Service worker registration failed", error.message);
-          });
+          navigator.serviceWorker.register("ServiceWorker.js");
         }
       });
 
       var container = document.querySelector("#unity-container");
       var canvas = document.querySelector("#unity-canvas");
+      var loadingBar = document.querySelector("#unity-loading-bar");
+      var progressBarFull = document.querySelector("#unity-progress-bar-full");
       var warningBanner = document.querySelector("#unity-warning");
-
-      if (debugMode) {
-        debugLog("Initial WebGL display elements", {
-          canvas: {
-            width: canvas.width,
-            height: canvas.height,
-            clientWidth: canvas.clientWidth,
-            clientHeight: canvas.clientHeight
-          },
-          loadingBar: { present: Boolean(document.querySelector("#unity-loading-bar")) },
-          unityLogo: { present: Boolean(document.querySelector("#unity-logo")) }
-        });
-        canvas.addEventListener("webglcontextlost", function (event) {
-          debugLog("WebGL context lost", event.statusMessage || "(no status message)");
-        });
-        canvas.addEventListener("webglcontextrestored", function () {
-          debugLog("WebGL context restored");
-        });
-      }
 
       // Shows a temporary message banner/ribbon for a few seconds, or
       // a permanent error message on top of the canvas if type=='error'.
@@ -117,12 +59,12 @@
       }
 
       var buildUrl = "Build";
-      var loaderUrl = buildUrl + "/CampamentoICDDWeb.loader.js";
+      var loaderUrl = buildUrl + "/docs.loader.js";
       var config = {
         arguments: [],
-        dataUrl: buildUrl + "/CampamentoICDDWeb.data",
-        frameworkUrl: buildUrl + "/CampamentoICDDWeb.framework.js",
-        codeUrl: buildUrl + "/CampamentoICDDWeb.wasm",
+        dataUrl: buildUrl + "/docs.data",
+        frameworkUrl: buildUrl + "/docs.framework.js",
+        codeUrl: buildUrl + "/docs.wasm",
         streamingAssetsUrl: "StreamingAssets",
         companyName: "DefaultCompany",
         productName: "Campamento",
@@ -135,17 +77,6 @@
         //    return true;
         // },
       };
-
-      debugLog("Configured Unity build", {
-        buildUrl: buildUrl,
-        loader: loaderUrl,
-        data: config.dataUrl,
-        framework: config.frameworkUrl,
-        wasm: config.codeUrl,
-        streamingAssets: config.streamingAssetsUrl,
-        productName: config.productName,
-        productVersion: config.productVersion
-      });
 
       // By default Unity keeps WebGL canvas render target size matched with
       // the DOM size of the canvas element (scaled by window.devicePixelRatio)
@@ -163,39 +94,18 @@
       }
 
 
+      loadingBar.style.display = "block";
+
       var script = document.createElement("script");
       script.src = loaderUrl;
-      debugLog("Loading Unity loader script", script.src);
       script.onload = () => {
-        debugLog("Unity loader script loaded", script.src);
         createUnityInstance(canvas, config, (progress) => {
-          debugLog("Unity startup progress", Math.round(progress * 100) + "%");
+          progressBarFull.style.width = 100 * progress + "%";
         }).then((unityInstance) => {
-          debugLog("Unity instance initialized", {
-            canvasWidth: canvas.width,
-            canvasHeight: canvas.height,
-            canvasClientWidth: canvas.clientWidth,
-            canvasClientHeight: canvas.clientHeight
-          });
-          if (debugMode) {
-            console.log("[Campamento WebGL] Build-related resource requests:",
-              performance.getEntriesByType("resource")
-                .filter((entry) => /Build|TemplateData|manifest|ServiceWorker/i.test(entry.name))
-                .map((entry) => ({
-                  url: entry.name,
-                  durationMs: Math.round(entry.duration),
-                  transferSize: entry.transferSize,
-                  encodedBodySize: entry.encodedBodySize
-                }))
-            );
-          }
+          loadingBar.style.display = "none";
         }).catch((message) => {
-          debugLog("Unity initialization failed", message);
           alert(message);
         });
-      };
-      script.onerror = () => {
-        debugLog("Unity loader script failed to load", script.src);
       };
       document.body.appendChild(script);
     </script>
