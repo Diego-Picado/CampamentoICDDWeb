@@ -25,9 +25,53 @@
       <div id="unity-warning"> </div>
     </div>
     <script>
+      var debugMode = true;
+      var debugStartTime = performance.now();
+      function debugLog(message, details) {
+        if (!debugMode) return;
+        var elapsed = Math.round(performance.now() - debugStartTime);
+        if (details === undefined) console.log("[Campamento WebGL +" + elapsed + "ms] " + message);
+        else console.log("[Campamento WebGL +" + elapsed + "ms] " + message, details);
+      }
+
+      if (debugMode) {
+        console.group("[Campamento WebGL] Startup diagnostics");
+        console.log("Page URL:", window.location.href);
+        console.log("Page title:", document.title);
+        console.log("User agent:", navigator.userAgent);
+        console.log("Service worker controller:", navigator.serviceWorker && navigator.serviceWorker.controller
+          ? navigator.serviceWorker.controller.scriptURL
+          : "none");
+        console.log("Initial page text:", document.body.innerText.trim().slice(0, 500) || "(none)");
+        console.groupEnd();
+        window.addEventListener("error", function (event) {
+          debugLog("Browser error", {
+            message: event.message,
+            file: event.filename,
+            line: event.lineno,
+            column: event.colno
+          });
+        });
+        window.addEventListener("unhandledrejection", function (event) {
+          debugLog("Unhandled promise rejection", String(event.reason));
+        });
+        if (navigator.serviceWorker) {
+          navigator.serviceWorker.addEventListener("controllerchange", function () {
+            debugLog("Service worker controller changed", navigator.serviceWorker.controller && navigator.serviceWorker.controller.scriptURL);
+          });
+        }
+      }
+
       window.addEventListener("load", function () {
         if ("serviceWorker" in navigator) {
-          navigator.serviceWorker.register("ServiceWorker.js");
+          navigator.serviceWorker.register("ServiceWorker.js").then(function (registration) {
+            debugLog("Service worker registered", {
+              scope: registration.scope,
+              scriptURL: registration.active && registration.active.scriptURL
+            });
+          }).catch(function (error) {
+            debugLog("Service worker registration failed", error.message);
+          });
         }
       });
 
@@ -36,6 +80,34 @@
       var loadingBar = document.querySelector("#unity-loading-bar");
       var progressBarFull = document.querySelector("#unity-progress-bar-full");
       var warningBanner = document.querySelector("#unity-warning");
+
+      if (debugMode) {
+        var loadingBarStyle = loadingBar && window.getComputedStyle(loadingBar);
+        var logoStyle = document.querySelector("#unity-logo") && window.getComputedStyle(document.querySelector("#unity-logo"));
+        debugLog("Initial WebGL display elements", {
+          canvas: {
+            width: canvas.width,
+            height: canvas.height,
+            clientWidth: canvas.clientWidth,
+            clientHeight: canvas.clientHeight
+          },
+          loadingBar: loadingBar ? {
+            present: true,
+            display: loadingBarStyle.display,
+            visibility: loadingBarStyle.visibility
+          } : { present: false },
+          unityLogo: logoStyle ? {
+            present: true,
+            backgroundImage: logoStyle.backgroundImage
+          } : { present: false }
+        });
+        canvas.addEventListener("webglcontextlost", function (event) {
+          debugLog("WebGL context lost", event.statusMessage || "(no status message)");
+        });
+        canvas.addEventListener("webglcontextrestored", function () {
+          debugLog("WebGL context restored");
+        });
+      }
 
       // Shows a temporary message banner/ribbon for a few seconds, or
       // a permanent error message on top of the canvas if type=='error'.
@@ -81,6 +153,17 @@
         // },
       };
 
+      debugLog("Configured Unity build", {
+        buildUrl: buildUrl,
+        loader: loaderUrl,
+        data: config.dataUrl,
+        framework: config.frameworkUrl,
+        wasm: config.codeUrl,
+        streamingAssets: config.streamingAssetsUrl,
+        productName: config.productName,
+        productVersion: config.productVersion
+      });
+
       // By default Unity keeps WebGL canvas render target size matched with
       // the DOM size of the canvas element (scaled by window.devicePixelRatio)
       // Set this to false if you want to decouple this synchronization from
@@ -101,14 +184,39 @@
 
       var script = document.createElement("script");
       script.src = loaderUrl;
+      debugLog("Loading Unity loader script", script.src);
       script.onload = () => {
+        debugLog("Unity loader script loaded", script.src);
         createUnityInstance(canvas, config, (progress) => {
+          debugLog("Unity startup progress", Math.round(progress * 100) + "%");
           progressBarFull.style.width = 100 * progress + "%";
         }).then((unityInstance) => {
+          debugLog("Unity instance initialized", {
+            canvasWidth: canvas.width,
+            canvasHeight: canvas.height,
+            canvasClientWidth: canvas.clientWidth,
+            canvasClientHeight: canvas.clientHeight
+          });
           loadingBar.style.display = "none";
+          if (debugMode) {
+            console.log("[Campamento WebGL] Build-related resource requests:",
+              performance.getEntriesByType("resource")
+                .filter((entry) => /Build|TemplateData|manifest|ServiceWorker/i.test(entry.name))
+                .map((entry) => ({
+                  url: entry.name,
+                  durationMs: Math.round(entry.duration),
+                  transferSize: entry.transferSize,
+                  encodedBodySize: entry.encodedBodySize
+                }))
+            );
+          }
         }).catch((message) => {
+          debugLog("Unity initialization failed", message);
           alert(message);
         });
+      };
+      script.onerror = () => {
+        debugLog("Unity loader script failed to load", script.src);
       };
       document.body.appendChild(script);
     </script>
